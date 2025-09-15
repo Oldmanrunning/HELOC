@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heloc-streamlit-@Oldmanrunning"     # choose a unique package name for PyPI
+version = "0.1.0"
+description = "HELOC Streamlit app"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{ name="Peter Saunders" }]  # change if needed
+license = { text = "MIT" }
+dependencies = ["streamlit"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["heloc*"]
