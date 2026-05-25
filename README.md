@@ -54,3 +54,10 @@ streamlit run app.py
 ```bash
 pytest -q
 ```
+
+## Features
+
+- HELOC payment and amortization analysis.
+- Alternative APR comparison.
+- Risk Intelligence scoring (0-100) with strengths, watch areas, and recommendation.
+- Optional affordability inputs: monthly income and monthly debt obligations.

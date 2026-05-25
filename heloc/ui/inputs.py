@@ -26,6 +26,8 @@ def render_inputs_form() -> dict:
         existing_loan = st.number_input("Existing Loan (USD)", min_value=0.0, value=200000.0, step=1000.0, format="%.2f")
 
         apr_alt_pct = st.number_input("Alternative APR (%)", min_value=0.0, value=28.0, step=0.1, format="%.2f")
+        monthly_income = st.number_input("Monthly Income (USD, optional)", min_value=0.0, value=0.0, step=100.0, format="%.2f")
+        monthly_debt = st.number_input("Monthly Debt Obligations (USD, optional)", min_value=0.0, value=0.0, step=50.0, format="%.2f")
         calc_button = st.form_submit_button("Calculate")
 
     return {
@@ -40,5 +42,7 @@ def render_inputs_form() -> dict:
         "Home_value": home_value,
         "Existing_loan": existing_loan,
         "APR_alt_pct": apr_alt_pct,
+        "Monthly_income": monthly_income,
+        "Monthly_debt": monthly_debt,
         "calc_button": calc_button,
     }
