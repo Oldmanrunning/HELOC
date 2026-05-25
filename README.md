@@ -59,5 +59,6 @@ pytest -q
 
 - HELOC payment and amortization analysis.
 - Alternative APR comparison.
+- Scenario Modeling tab with editable assumptions and side-by-side option analysis.
 - Risk Intelligence scoring (0-100) with strengths, watch areas, and recommendation.
 - Optional affordability inputs: monthly income and monthly debt obligations.

@@ -5,7 +5,7 @@ import streamlit as st
 
 from heloc.calculations.amortization import amortize_schedule
 from heloc.calculations.risk import calculate_risk_score, loan_to_value
-from heloc.calculations.scenarios import estimated_loan_amount
+from heloc.calculations.scenarios import build_scenario_comparison, choose_best_option, estimated_loan_amount
 from heloc.visualizations.charts import render_balance_chart
 
 
@@ -46,7 +46,7 @@ def render_results(values: dict) -> None:
     k3.metric("Loan-to-Value (LTV)", f"{ltv:.2%}")
 
     st.markdown("---")
-    tabs = st.tabs(["Details", "Amortization", "Alternative APR", "Risk Intelligence", "Export"])
+    tabs = st.tabs(["Details", "Amortization", "Alternative APR", "Risk Intelligence", "Scenario Modeling", "Export"])
 
     with tabs[0]:
         st.header("Details")
@@ -61,20 +61,6 @@ def render_results(values: dict) -> None:
             - **Closing Costs:** {fmt_usd(values['Closing_costs'])}
             """
         )
-        with st.expander("Show all fees and values"):
-            st.write(
-                {
-                    "Application_fee": values["Application_fee"],
-                    "Annual_fee": values["Annual_fee"],
-                    "Appraisal_fee": values["Appraisal_fee"],
-                    "Origination_fee": values["Origination_fee"],
-                    "Closing_costs": values["Closing_costs"],
-                    "Home_value": values["Home_value"],
-                    "Existing_loan": values["Existing_loan"],
-                    "Monthly_income": values["Monthly_income"],
-                    "Monthly_debt": values["Monthly_debt"],
-                }
-            )
 
     with tabs[1]:
         st.header("Amortization schedule (first 24 months)")
@@ -105,15 +91,62 @@ def render_results(values: dict) -> None:
         st.subheader("Strengths")
         for item in risk["strengths"]:
             st.markdown(f"- {item}")
-
         st.subheader("Watch areas")
         for item in risk["watch_areas"]:
             st.markdown(f"- {item}")
-
         st.subheader("Recommendation")
         st.info(risk["recommendation"])
 
     with tabs[4]:
+        st.header("Scenario Modeling")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            stress_apr_shift_pct = st.number_input("APR stress delta (%)", min_value=0.0, value=2.0, step=0.1, format="%.2f")
+        with c2:
+            home_value_drop_pct = st.number_input("Home value decline (%)", min_value=0.0, value=10.0, step=1.0, format="%.1f")
+        with c3:
+            credit_card_apr_pct = st.number_input("Credit card APR (%)", min_value=0.0, value=24.0, step=0.1, format="%.2f")
+
+        scenario_df = build_scenario_comparison(
+            borrowed=values["Borrowed"],
+            apr=apr,
+            period_years=values["Period_years"],
+            home_value=values["Home_value"],
+            existing_loan=values["Existing_loan"],
+            alternative_apr=apr_alt,
+            stress_apr_shift=stress_apr_shift_pct / 100.0,
+            home_value_drop_pct=home_value_drop_pct / 100.0,
+            credit_card_apr=credit_card_apr_pct / 100.0,
+        )
+
+        best_option = choose_best_option(scenario_df)
+        st.success(f"Best Option (lowest total repayment): **{best_option}**")
+
+        display_df = scenario_df.copy()
+        for col in ["APR", "LTV", "CLTV"]:
+            display_df[col] = display_df[col].map(lambda x: f"{x:.2%}")
+        for col in [
+            "Monthly Payment",
+            "Total Interest",
+            "Total Repayment",
+            "Diff Monthly vs Current",
+            "Diff Interest vs Current",
+            "Diff Repayment vs Current",
+        ]:
+            display_df[col] = display_df[col].map(fmt_usd)
+
+        st.dataframe(display_df, use_container_width=True)
+
+        top = scenario_df.sort_values("Total Repayment").iloc[0]
+        base = scenario_df[scenario_df["Scenario"] == "Current HELOC"].iloc[0]
+        delta = top["Total Repayment"] - base["Total Repayment"]
+        direction = "lower" if delta < 0 else "higher"
+        st.markdown(
+            f"Under the current assumptions, **{top['Scenario']}** has the lowest projected total repayment. "
+            f"Compared with the current HELOC, it is **{fmt_usd(abs(delta))} {direction}** over the modeled term."
+        )
+
+    with tabs[5]:
         st.header("Export")
         st.write("Download amortization schedule as CSV for further analysis or printing.")
         csv = sched.to_csv(index=False)
