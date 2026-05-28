@@ -6,6 +6,7 @@ import streamlit as st
 from heloc.calculations.amortization import amortize_schedule
 from heloc.calculations.risk import calculate_risk_score, loan_to_value
 from heloc.calculations.scenarios import build_scenario_comparison, choose_best_option, estimated_loan_amount
+from heloc.reports.pdf_report import build_pdf_report
 from heloc.visualizations.charts import render_balance_chart
 
 
@@ -159,3 +160,50 @@ def render_results(values: dict) -> None:
         - Total interest: {fmt_usd(intr)}
         """
         st.download_button("Download short report (TXT)", data=report_md, file_name="heloc_summary.txt", mime="text/plain")
+        scenario_df = build_scenario_comparison(
+            borrowed=values["Borrowed"],
+            apr=apr,
+            period_years=values["Period_years"],
+            home_value=values["Home_value"],
+            existing_loan=values["Existing_loan"],
+            alternative_apr=apr_alt,
+            stress_apr_shift=0.02,
+            home_value_drop_pct=0.10,
+            credit_card_apr=0.24,
+        )
+        pdf_bytes = build_pdf_report(
+            borrower_assumptions={
+                "Borrowed": fmt_usd(values["Borrowed"]),
+                "Home Value": fmt_usd(values["Home_value"]),
+                "Existing Loan": fmt_usd(values["Existing_loan"]),
+                "Term": f"{values['Period_years']} years",
+                "HELOC APR": f"{values['APR_pct']:.2f}%",
+                "Alternative APR": f"{values['APR_alt_pct']:.2f}%",
+                "Monthly Income (optional)": fmt_usd(values["Monthly_income"]),
+                "Monthly Debt (optional)": fmt_usd(values["Monthly_debt"]),
+            },
+            loan_summary={
+                "Estimated Loan Amount": fmt_usd(estimated_loan),
+                "Monthly Payment": fmt_usd(m),
+                "Total Interest": fmt_usd(intr),
+                "Loan-to-Value (LTV)": f"{ltv:.2%}",
+                "Application Fee": fmt_usd(values["Application_fee"]),
+                "Annual Fee": fmt_usd(values["Annual_fee"]),
+                "Appraisal Fee": fmt_usd(values["Appraisal_fee"]),
+                "Origination Fee": fmt_usd(values["Origination_fee"]),
+                "Closing Costs": fmt_usd(values["Closing_costs"]),
+            },
+            risk=risk,
+            scenario_df=scenario_df,
+            total_interest_comparison={
+                "Current HELOC": intr,
+                "Alternative APR": intr_alt,
+                "Difference (Alt - Current)": intr_alt - intr,
+            },
+        )
+        st.download_button(
+            "Download PDF Report",
+            data=pdf_bytes,
+            file_name=f"heloc_financial_decision_report_{datetime.today().date()}.pdf",
+            mime="application/pdf",
+        )
