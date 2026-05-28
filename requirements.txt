@@ -1,7 +1,10 @@
-streamlit>=1.10
-markdown
+streamlit
 pandas
+numpy
+plotly
+scikit-learn
+matplotlib
+requests
 fpdf2
 openai
-# weasyprint is commented because it often fails on cloud:
-# weasyprint==65.1
+python-dotenv
