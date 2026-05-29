@@ -8,6 +8,7 @@ from heloc.calculations.risk import calculate_risk_score, loan_to_value
 from heloc.calculations.scenarios import build_scenario_comparison, choose_best_option, estimated_loan_amount
 from heloc.reports.pdf_report import build_pdf_report
 from heloc.services.ai_advisor import build_explanation_summary, get_ai_financial_explanation
+from heloc.services.market_rates import get_market_rate_context
 from heloc.visualizations.charts import render_balance_chart
 
 
@@ -48,8 +49,10 @@ def render_results(values: dict) -> None:
     k2.metric("Total Interest", fmt_usd(intr))
     k3.metric("Loan-to-Value (LTV)", f"{ltv:.2%}")
 
+    market_context = get_market_rate_context(values["APR_pct"])
+
     st.markdown("---")
-    tabs = st.tabs(["Details", "Amortization", "Alternative APR", "Risk Intelligence", "Scenario Modeling", "AI Financial Explanation", "Export"])
+    tabs = st.tabs(["Details", "Market Context", "Amortization", "Alternative APR", "Risk Intelligence", "Scenario Modeling", "AI Financial Explanation", "Export"])
 
     with tabs[0]:
         st.header("Details")
@@ -66,6 +69,16 @@ def render_results(values: dict) -> None:
         )
 
     with tabs[1]:
+        st.header("Market Context")
+        m1, m2, m3 = st.columns(3)
+        m1.metric(market_context.benchmark_label, f"{market_context.benchmark_rate:.2f}%")
+        m2.metric("Date Retrieved", market_context.date_retrieved)
+        m3.metric("Source", "Live" if market_context.is_live else "Sample/default")
+        st.caption(market_context.source_label)
+        st.markdown(f"**Comparison:** {market_context.comparison}")
+        st.info(market_context.interpretation)
+
+    with tabs[2]:
         st.header("Amortization schedule (first 24 months)")
         if sched.empty:
             st.info("No schedule (zero principal or period).")
@@ -73,7 +86,7 @@ def render_results(values: dict) -> None:
             st.dataframe(sched.head(24).assign(payment=lambda df: df["payment"].map(fmt_usd)))
             render_balance_chart(sched)
 
-    with tabs[2]:
+    with tabs[3]:
         st.header("Compare to alternative APR")
         st.markdown(
             f"- **Alt APR:** {values['APR_alt_pct']:.2f}%  \n"
@@ -83,7 +96,7 @@ def render_results(values: dict) -> None:
         st.write("Difference in monthly payment:", fmt_usd(m_alt - m))
         st.write("Difference in total interest:", fmt_usd(intr_alt - intr))
 
-    with tabs[3]:
+    with tabs[4]:
         st.header("Risk Intelligence")
         st.metric("Risk Score", f"{risk['score']:.1f} / 100")
         level_colors = {"Low": "#2e7d32", "Moderate": "#ef6c00", "Elevated": "#d84315", "High": "#b71c1c"}
@@ -100,7 +113,7 @@ def render_results(values: dict) -> None:
         st.subheader("Recommendation")
         st.info(risk["recommendation"])
 
-    with tabs[4]:
+    with tabs[5]:
         st.header("Scenario Modeling")
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -149,7 +162,7 @@ def render_results(values: dict) -> None:
             f"Compared with the current HELOC, it is **{fmt_usd(abs(delta))} {direction}** over the modeled term."
         )
 
-    with tabs[5]:
+    with tabs[6]:
         st.header("AI Financial Explanation")
         scenario_df_for_explainer = build_scenario_comparison(
             borrowed=values["Borrowed"],
@@ -178,7 +191,7 @@ def render_results(values: dict) -> None:
             "It excludes personally identifying information."
         )
 
-    with tabs[6]:
+    with tabs[7]:
         st.header("Export")
         st.write("Download amortization schedule as CSV for further analysis or printing.")
         csv = sched.to_csv(index=False)
