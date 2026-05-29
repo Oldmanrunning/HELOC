@@ -6,23 +6,15 @@ def render_inputs_form() -> dict:
         st.subheader("Borrower & Loan Assumptions")
         st.caption("Tune the inputs below to evaluate payment, equity, cost, and risk trade-offs.")
 
-        borrowed = st.slider(
+        borrowed = st.number_input(
             "Requested HELOC draw (USD)",
             min_value=0.0,
             max_value=200000.0,
-            value=50000.0,
-            step=100.0,
-            format="%.0f",
+            value=60000.0,
+            step=1000.0,
+            format="%.2f",
             help="The amount you plan to borrow or draw from the credit line.",
         )
-        borrowed_exact = st.number_input(
-            "Requested draw — exact amount",
-            value=borrowed,
-            step=100.0,
-            format="%.2f",
-        )
-        if borrowed_exact != borrowed:
-            borrowed = borrowed_exact
 
         apr_pct = st.number_input(
             "HELOC APR (%)",
@@ -32,7 +24,13 @@ def render_inputs_form() -> dict:
             format="%.2f",
             help="Enter the current or expected annual percentage rate.",
         )
-        period_years = st.slider("Repayment period (years)", 1, 30, 10)
+        period_years = st.number_input(
+            "Repayment period (years)",
+            min_value=1,
+            max_value=30,
+            value=15,
+            step=1,
+        )
 
         st.divider()
         st.markdown("**Property & equity profile**")
