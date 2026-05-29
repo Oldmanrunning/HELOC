@@ -1,9 +1,11 @@
 from datetime import datetime
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from heloc.calculations.amortization import amortize_schedule
+from heloc.calculations.monte_carlo import build_monte_carlo_interpretation, simulate_heloc_interest_rate_paths
 from heloc.calculations.risk import calculate_risk_score, loan_to_value
 from heloc.calculations.scenarios import build_scenario_comparison, choose_best_option, estimated_loan_amount
 from heloc.reports.pdf_report import build_pdf_report
@@ -52,7 +54,7 @@ def render_results(values: dict) -> None:
     market_context = get_market_rate_context(values["APR_pct"])
 
     st.markdown("---")
-    tabs = st.tabs(["Details", "Market Context", "Amortization", "Alternative APR", "Risk Intelligence", "Scenario Modeling", "AI Financial Explanation", "Export"])
+    tabs = st.tabs(["Details", "Market Context", "Amortization", "Alternative APR", "Risk Intelligence", "Scenario Modeling", "Monte Carlo Forecast", "AI Financial Explanation", "Export"])
 
     with tabs[0]:
         st.header("Details")
@@ -163,6 +165,93 @@ def render_results(values: dict) -> None:
         )
 
     with tabs[6]:
+        st.header("Monte Carlo Forecast")
+        st.caption(
+            "Educational model: APR follows a random walk, and payments are re-amortized monthly "
+            "over the remaining term at each simulated APR."
+        )
+        mc1, mc2, mc3 = st.columns(3)
+        with mc1:
+            mc_starting_apr_pct = st.number_input(
+                "Starting APR for simulation (%)",
+                min_value=0.0,
+                value=float(values["APR_pct"]),
+                step=0.05,
+                format="%.2f",
+            )
+        with mc2:
+            mc_volatility_pct = st.number_input(
+                "Annual APR volatility (%)",
+                min_value=0.0,
+                value=2.0,
+                step=0.1,
+                format="%.2f",
+                help="A value of 2.00 means annualized volatility of about two percentage points.",
+            )
+        with mc3:
+            mc_simulations = st.number_input(
+                "Number of simulations",
+                min_value=1000,
+                max_value=20000,
+                value=5000,
+                step=1000,
+            )
+
+        mc_result = simulate_heloc_interest_rate_paths(
+            starting_apr=mc_starting_apr_pct / 100.0,
+            annual_apr_volatility=mc_volatility_pct / 100.0,
+            years=values["Period_years"],
+            principal=values["Borrowed"],
+            number_of_simulations=int(mc_simulations),
+        )
+
+        f1, f2, f3, f4 = st.columns(4)
+        f1.metric("Median Total Interest", fmt_usd(mc_result["median_total_interest"]))
+        f2.metric("10th Percentile", fmt_usd(mc_result["p10_total_interest"]))
+        f3.metric("90th Percentile", fmt_usd(mc_result["p90_total_interest"]))
+        f4.metric(
+            "P(Interest > Baseline +10%)",
+            f"{mc_result['probability_exceeds_baseline_by_10']:.1%}",
+        )
+
+        simulation_df = mc_result["simulation_df"]
+        fig = px.histogram(
+            simulation_df,
+            x="total_interest",
+            nbins=50,
+            title="Distribution of Simulated Total Interest",
+            labels={"total_interest": "Total Interest (USD)", "count": "Simulation Count"},
+        )
+        fig.add_vline(
+            x=mc_result["baseline_total_interest"],
+            line_dash="dash",
+            line_color="red",
+            annotation_text="Fixed-rate baseline",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.info(
+            build_monte_carlo_interpretation(
+                median_total_interest=mc_result["median_total_interest"],
+                p10_total_interest=mc_result["p10_total_interest"],
+                p90_total_interest=mc_result["p90_total_interest"],
+                baseline_total_interest=mc_result["baseline_total_interest"],
+                probability_exceeds_baseline_by_10=mc_result["probability_exceeds_baseline_by_10"],
+            )
+        )
+        with st.expander("Model transparency"):
+            st.markdown(
+                f"""
+                - **Starting APR:** {mc_starting_apr_pct:.2f}%
+                - **Annual APR volatility:** {mc_volatility_pct:.2f} percentage points
+                - **Years:** {values['Period_years']}
+                - **Principal:** {fmt_usd(values['Borrowed'])}
+                - **Simulations:** {int(mc_simulations):,}
+                - **Baseline total interest:** {fmt_usd(mc_result['baseline_total_interest'])}
+                """
+            )
+            st.dataframe(simulation_df.head(100), use_container_width=True)
+
+    with tabs[7]:
         st.header("AI Financial Explanation")
         scenario_df_for_explainer = build_scenario_comparison(
             borrowed=values["Borrowed"],
@@ -191,7 +280,7 @@ def render_results(values: dict) -> None:
             "It excludes personally identifying information."
         )
 
-    with tabs[7]:
+    with tabs[8]:
         st.header("Export")
         st.write("Download amortization schedule as CSV for further analysis or printing.")
         csv = sched.to_csv(index=False)
