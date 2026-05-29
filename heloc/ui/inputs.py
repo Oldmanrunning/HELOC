@@ -9,7 +9,6 @@ def render_inputs_form() -> dict:
         borrowed = st.number_input(
             "Requested HELOC draw (USD)",
             min_value=0.0,
-            max_value=200000.0,
             value=60000.0,
             step=1000.0,
             format="%.2f",
