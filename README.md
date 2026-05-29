@@ -55,33 +55,47 @@ Suggested GitHub README layout:
 ## Architecture
 
 ```text
-app.py                         # Streamlit entry point and portfolio-grade shell / hero layout
+app.py                         # Thin Streamlit entrypoint: imports and runs heloc.ui.layout.render_app()
+heloc_streamlit_app.py          # Backward-compatible launcher for older deployments/bookmarks
 heloc/
+  __init__.py
   calculations/
-    amortization.py            # Monthly payment and amortization schedule math
+    __init__.py
+    amortization.py            # Monthly payment and amortization schedule math moved from the original app
     risk.py                    # LTV / CLTV and transparent risk scoring
     scenarios.py               # Scenario comparison table and best-option selection
     monte_carlo.py             # Variable-rate Monte Carlo forecast model
+  visualizations/
+    __init__.py
+    charts.py                  # Chart rendering helpers
   reports/
+    __init__.py
     pdf_report.py              # PDF decision report generation
   services/
+    __init__.py
     ai_advisor.py              # Optional OpenAI explanation with rule-based fallback
     market_rates.py            # Optional FRED benchmark lookup with safe fallback
   ui/
-    inputs.py                  # Streamlit input form
-    layout.py                  # Results tabs and visual presentation
-  visualizations/
-    charts.py                  # Chart rendering helpers
-tests/                         # Pytest suite for calculations and service fallbacks
+    __init__.py
+    inputs.py                  # Streamlit input form preserving original borrower assumptions
+    layout.py                  # App shell, results tabs, metrics, styling, and export presentation
+tests/
+  test_amortization.py
+  test_risk.py
+  test_scenarios.py
+  test_monte_carlo.py
+  test_market_rates.py
+  test_pdf_report.py
 ```
 
 ### Data flow
 
-1. `app.py` renders the hero layout and calls the input form.
-2. `heloc/ui/inputs.py` returns a normalized dictionary of borrower and loan assumptions.
-3. `heloc/ui/layout.py` orchestrates calculations, tabs, metrics, charts, explanations, and exports.
-4. Calculation modules in `heloc/calculations/` remain framework-independent and unit-testable.
+1. `app.py` stays intentionally small and delegates to `heloc.ui.layout.render_app()`.
+2. `heloc/ui/layout.py` owns the Streamlit page configuration, portfolio hero, responsive styling, results tabs, metrics, and export presentation.
+3. `heloc/ui/inputs.py` returns a normalized dictionary of borrower and loan assumptions while preserving the original form behavior.
+4. `heloc/calculations/amortization.py` contains the amortization schedule logic that previously lived in `heloc_streamlit_app.py`; the remaining calculation modules are framework-independent and unit-testable.
 5. Service modules enrich the app when API keys are present but fail safely for local portfolio demos.
+6. `heloc_streamlit_app.py` remains as a compatibility launcher, but the recommended command is `streamlit run app.py`.
 
 ## How to run locally
 
@@ -117,6 +131,8 @@ streamlit run app.py
 ```
 
 Then open the local Streamlit URL displayed in your terminal, usually `http://localhost:8501`.
+
+> The legacy `heloc_streamlit_app.py` file now delegates to the refactored package entrypoint so older deployment settings still work, but new deployments should use `app.py`.
 
 ## Environment variables
 
