@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import date
-from io import BytesIO
 from typing import Dict
 
 import pandas as pd
@@ -19,22 +18,23 @@ def _fmt_pct(value: float) -> str:
 class HELOCPDF(FPDF):
     def header(self) -> None:
         self.set_font("Helvetica", "B", 14)
-        self.cell(0, 8, "HELOC Financial Decision Report", ln=True)
+        self.cell(0, 8, "HELOC Financial Decision Report", new_x="LMARGIN", new_y="NEXT")
         self.set_font("Helvetica", "", 10)
         self.set_text_color(90, 90, 90)
-        self.cell(0, 6, f"Generated: {date.today().isoformat()}", ln=True)
+        self.cell(0, 6, f"Generated: {date.today().isoformat()}", new_x="LMARGIN", new_y="NEXT")
         self.set_text_color(0, 0, 0)
         self.ln(2)
 
     def section_title(self, title: str) -> None:
+        self.set_x(self.l_margin)
         self.set_fill_color(245, 247, 250)
         self.set_font("Helvetica", "B", 11)
-        self.cell(0, 8, title, ln=True, fill=True)
+        self.cell(0, 8, title, new_x="LMARGIN", new_y="NEXT", fill=True)
 
     def bullet_list(self, items: list[str]) -> None:
         self.set_font("Helvetica", "", 10)
         for item in items:
-            self.multi_cell(0, 6, f"- {item}")
+            self.multi_cell(0, 6, f"- {item}", new_x="LMARGIN", new_y="NEXT")
 
 
 def build_pdf_report(
@@ -52,17 +52,17 @@ def build_pdf_report(
     pdf.section_title("Borrower assumptions")
     pdf.set_font("Helvetica", "", 10)
     for label, value in borrower_assumptions.items():
-        pdf.multi_cell(0, 6, f"{label}: {value}")
+        pdf.multi_cell(0, 6, f"{label}: {value}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.section_title("Loan summary")
     pdf.set_font("Helvetica", "", 10)
     for label, value in loan_summary.items():
-        pdf.multi_cell(0, 6, f"{label}: {value}")
+        pdf.multi_cell(0, 6, f"{label}: {value}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.section_title("Risk score and risk level")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 6, f"Risk Score: {risk['score']:.1f} / 100")
-    pdf.multi_cell(0, 6, f"Risk Level: {risk['level']}")
+    pdf.multi_cell(0, 6, f"Risk Score: {risk['score']:.1f} / 100", new_x="LMARGIN", new_y="NEXT")
+    pdf.multi_cell(0, 6, f"Risk Level: {risk['level']}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.section_title("Strengths")
     pdf.bullet_list(risk["strengths"] or ["No notable strengths identified under current assumptions."])
@@ -72,7 +72,7 @@ def build_pdf_report(
 
     pdf.section_title("Recommendation")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 6, str(risk["recommendation"]))
+    pdf.multi_cell(0, 6, str(risk["recommendation"]), new_x="LMARGIN", new_y="NEXT")
 
     pdf.section_title("Scenario comparison")
     columns = ["Scenario", "APR", "Monthly Payment", "Total Interest", "Total Repayment"]
@@ -100,7 +100,7 @@ def build_pdf_report(
     pdf.section_title("Total interest comparison")
     pdf.set_font("Helvetica", "", 10)
     for label, value in total_interest_comparison.items():
-        pdf.multi_cell(0, 6, f"{label}: {_fmt_usd(value)}")
+        pdf.multi_cell(0, 6, f"{label}: {_fmt_usd(value)}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.section_title("Disclaimer")
     pdf.set_font("Helvetica", "I", 9)
@@ -109,8 +109,11 @@ def build_pdf_report(
         5,
         "This report is an educational planning tool and is not financial, legal, tax, or investment advice. "
         "Consult licensed professionals before making financial decisions.",
+        new_x="LMARGIN",
+        new_y="NEXT",
     )
 
-    output = BytesIO()
-    output.write(pdf.output(dest="S").encode("latin-1"))
-    return output.getvalue()
+    raw_output = pdf.output()
+    if isinstance(raw_output, str):
+        return raw_output.encode("latin-1")
+    return bytes(raw_output)

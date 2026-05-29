@@ -48,3 +48,23 @@ def test_risk_score_high_risk_scenario():
     assert result["score"] < 40
     assert result["level"] == "High"
     assert len(result["watch_areas"]) > 0
+
+
+def test_risk_score_penalizes_high_fee_ratio_and_missing_affordability():
+    result = calculate_risk_score(
+        borrowed=10000,
+        existing_loan=50000,
+        home_value=300000,
+        apr=0.07,
+        period_years=10,
+        monthly_payment=120,
+        application_fee=500,
+        annual_fee=300,
+        appraisal_fee=400,
+        origination_fee=700,
+        closing_costs=1000,
+    )
+
+    assert result["score"] < 100
+    assert any("Fees and closing costs are high" in item for item in result["watch_areas"])
+    assert any("Monthly income/debt not provided" in item for item in result["watch_areas"])
