@@ -4,6 +4,7 @@ import os
 from typing import Any, Dict, Tuple
 
 import pandas as pd
+from openai import OpenAI
 
 
 def _fmt_usd(value: float) -> str:
@@ -61,8 +62,6 @@ def get_ai_financial_explanation(summary: Dict[str, Any]) -> Tuple[str, str]:
         )
 
     try:
-        from openai import OpenAI
-
         client = OpenAI(api_key=api_key)
         resp = client.responses.create(
             model="gpt-4.1-mini",
