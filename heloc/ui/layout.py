@@ -45,33 +45,66 @@ def render_results(values: dict) -> None:
         monthly_debt=values["Monthly_debt"] or None,
     )
 
-    st.subheader("Quick summary")
-    k1, k2, k3 = st.columns(3)
+    st.subheader("Executive Decision Snapshot")
+    k1, k2, k3, k4 = st.columns(4)
     k1.metric("Monthly Payment", fmt_usd(m))
     k2.metric("Total Interest", fmt_usd(intr))
-    k3.metric("Loan-to-Value (LTV)", f"{ltv:.2%}")
+    k3.metric("Combined LTV", f"{cltv:.2%}")
+    k4.metric("Risk Score", f"{risk['score']:.1f}/100", risk["level"])
+    st.caption(
+        "Use the tabs below to move from headline affordability to scenario stress tests, "
+        "risk diagnostics, market context, and exportable documentation."
+    )
 
     market_context = get_market_rate_context(values["APR_pct"])
 
     st.markdown("---")
-    tabs = st.tabs(["Details", "Market Context", "Amortization", "Alternative APR", "Risk Intelligence", "Scenario Modeling", "Monte Carlo Forecast", "AI Financial Explanation", "Export"])
+    tabs = st.tabs(
+        [
+            "Overview",
+            "Market Context",
+            "Amortization",
+            "Alternative APR",
+            "Risk Intelligence",
+            "Scenario Modeling",
+            "Monte Carlo Forecast",
+            "AI Financial Explanation",
+            "Export",
+        ]
+    )
 
     with tabs[0]:
-        st.header("Details")
+        st.header("Overview")
         st.markdown(
-            f"""
-            - **Borrowed:** {fmt_usd(values['Borrowed'])}
-            - **APR:** {values['APR_pct']:.2f}%
-            - **Payment Period:** {values['Period_years']} years
-            - **Estimated Loan Amount:** {fmt_usd(estimated_loan)}
-            - **LTV:** {ltv:.2%}
-            - **Application Fee:** {fmt_usd(values['Application_fee'])}
-            - **Closing Costs:** {fmt_usd(values['Closing_costs'])}
-            """
+            "This section translates the borrower inputs into an at-a-glance decision brief "
+            "for portfolio review, lender comparison, or financial planning discussions."
         )
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(
+                f"""
+                **Loan assumptions**
+                - Requested draw: **{fmt_usd(values['Borrowed'])}**
+                - HELOC APR: **{values['APR_pct']:.2f}%**
+                - Repayment period: **{values['Period_years']} years**
+                - Estimated combined loan amount: **{fmt_usd(estimated_loan)}**
+                """
+            )
+        with c2:
+            st.markdown(
+                f"""
+                **Equity and costs**
+                - Home value: **{fmt_usd(values['Home_value'])}**
+                - Existing liens: **{fmt_usd(values['Existing_loan'])}**
+                - Combined LTV: **{cltv:.2%}**
+                - Up-front / recurring fees modeled: **{fmt_usd(values['Application_fee'] + values['Annual_fee'] + values['Appraisal_fee'] + values['Origination_fee'] + values['Closing_costs'])}**
+                """
+            )
+        st.info(risk["recommendation"])
 
     with tabs[1]:
         st.header("Market Context")
+        st.markdown("Benchmark the entered APR against a prime-rate reference so the rate quote is easier to interpret.")
         m1, m2, m3 = st.columns(3)
         m1.metric(market_context.benchmark_label, f"{market_context.benchmark_rate:.2f}%")
         m2.metric("Date Retrieved", market_context.date_retrieved)
@@ -100,6 +133,7 @@ def render_results(values: dict) -> None:
 
     with tabs[4]:
         st.header("Risk Intelligence")
+        st.markdown("A transparent rules-based score summarizes equity, term, APR, fee, and affordability signals.")
         st.metric("Risk Score", f"{risk['score']:.1f} / 100")
         level_colors = {"Low": "#2e7d32", "Moderate": "#ef6c00", "Elevated": "#d84315", "High": "#b71c1c"}
         st.markdown(
@@ -117,6 +151,7 @@ def render_results(values: dict) -> None:
 
     with tabs[5]:
         st.header("Scenario Modeling")
+        st.markdown("Stress-test the quote against rate changes, home-value declines, and alternative debt products.")
         c1, c2, c3 = st.columns(3)
         with c1:
             stress_apr_shift_pct = st.number_input("APR stress delta (%)", min_value=0.0, value=2.0, step=0.1, format="%.2f")
@@ -282,7 +317,7 @@ def render_results(values: dict) -> None:
 
     with tabs[8]:
         st.header("Export")
-        st.write("Download amortization schedule as CSV for further analysis or printing.")
+        st.write("Download the amortization schedule, a concise text summary, or a portfolio-ready PDF report.")
         csv = sched.to_csv(index=False)
         st.download_button("Download schedule (CSV)", data=csv, file_name="amortization_schedule.csv", mime="text/csv")
         report_md = f"""
